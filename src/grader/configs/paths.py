@@ -22,8 +22,3 @@ def EnsurePaths() -> None:
 
     if not PATH_ENV.exists():
         raise FileNotFoundError("`.env` file not found")
-
-if __name__ == "__main__":
-    EnsurePaths()
-
-    print(_DIR_ROOT)
