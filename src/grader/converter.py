@@ -1,7 +1,5 @@
-from __future__ import annotations
-
-import base64
 import json
+import base64
 from pathlib import Path
 from typing import Iterable
 
@@ -75,20 +73,20 @@ def convert_friendly_to_llm(
 
     for cell_index, cell in enumerate(notebook.cells, start=1):
         if cell.cell_type == "markdown":
-            sections.append(f"### Markdown Cell {cell_index}\n")
+            sections.append(f"<--- Markdown #{cell_index} --->\n")
             sections.append(str(cell.source).strip())
-            sections.append("")
+            sections.append("\n")
             continue
 
         if cell.cell_type == "code":
-            sections.append(f"### Code Cell {cell_index}\n")
-            sections.append("```python")
+            sections.append(f"<--- Code #{cell_index} --->\n")
+            sections.append("```py")
             sections.append(str(cell.source).rstrip())
-            sections.append("```")
+            sections.append("```\n")
 
             outputs = cell.get("outputs", [])
             if outputs:
-                sections.append("Output:")
+                sections.append(f"<--- Output #{cell_index} --->\n")
 
             for output_index, output in enumerate(outputs, start=1):
                 image_paths = _extract_images(
@@ -106,16 +104,12 @@ def convert_friendly_to_llm(
             sections.append("")
             continue
 
-        sections.append(f"### {cell.cell_type.title()} Cell {cell_index}\n")
+        sections.append(f"<--- UNKNOWN type: {cell.cell_type.title()} #{cell_index} --->\n")
         sections.append(str(cell.source).strip())
-        sections.append("")
+        sections.append("\n")
 
     return "\n".join(section for section in sections if section)
 
-
-def ConvertFriendlyToLLM(
-    ipynb_file_path: str | Path, output_directory_path: str | Path
-) -> str:
-    """Backward compatible wrapper for convert_friendly_to_llm."""
-
-    return convert_friendly_to_llm(ipynb_file_path, output_directory_path)
+if __name__ == "__main__":
+    text = convert_friendly_to_llm("notebooks/test.ipynb", "notebooks/output")
+    print(text)
