@@ -6,7 +6,7 @@ from typing import Iterable
 import nbformat
 
 
-def _iter_output_text(output: nbformat.NotebookNode) -> Iterable[str]:
+def _IterOutputText(output: nbformat.NotebookNode) -> Iterable[str]:
     output_type = output.get("output_type")
     if output_type == "stream":
         text = output.get("text", "")
@@ -35,7 +35,7 @@ def _iter_output_text(output: nbformat.NotebookNode) -> Iterable[str]:
             yield "\n".join(str(line) for line in traceback)
 
 
-def _extract_images(
+def _ExtractImages(
     output: nbformat.NotebookNode,
     output_directory: Path,
     cell_index: int,
@@ -59,8 +59,7 @@ def _extract_images(
     return saved_paths
 
 
-# TODO: implement (you can change `_iter_output_text` & `_extract_images`)
-def process_raw_ipynb(
+def ProcessRawJupyter(
     ipynb_file_path: str | Path, output_directory_path: str | Path
 ) -> None:
     """
@@ -91,9 +90,9 @@ def process_raw_ipynb(
             output_images: list[str] = []
             outputs = cell.get("outputs", [])
             for output_index, output in enumerate(outputs):
-                output_texts.extend(_iter_output_text(output))
+                output_texts.extend(_IterOutputText(output))
                 output_images.extend(
-                    _extract_images(output, output_directory, cell_index, output_index)
+                    _ExtractImages(output, output_directory, cell_index, output_index)
                 )
             cell_payload["output_texts"] = output_texts
             cell_payload["output_images"] = output_images
@@ -107,6 +106,3 @@ def process_raw_ipynb(
 
     json_path = output_directory / f"{ipynb_path.stem}.json"
     json_path.write_text(json.dumps(json_payload, indent=2, sort_keys=True))
-
-if __name__ == "__main__":
-    process_raw_ipynb("notebooks/test.ipynb", "notebooks/output")
