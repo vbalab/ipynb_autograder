@@ -109,7 +109,7 @@ def ProcessRawJupyterToJSON(
     json_path.write_text(json.dumps(json_payload, indent=2, sort_keys=True))
 
 
-def ProcessJSONToLLMFriendly(  # noqa: PLR0912, PLR0915
+def ProcessJSONToLLMFriendlyText(  # noqa: PLR0912, PLR0915
     json_file_path: Path,
     output_directory_path: Path,
 ) -> None:

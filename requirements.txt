@@ -1,3 +1,5 @@
 jupyter
 nbconvert
 pydantic
+pydantic-settings
+openai
