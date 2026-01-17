@@ -1,5 +1,5 @@
 from grader.configs.paths import DIR_NOTEBOOK, EnsurePaths
-from grader.convert import ProcessRawJupyterToJSON, ProcessJSONToLLMFriendly
+from grader.convert import ProcessJSONToLLMFriendly, ProcessRawJupyterToJSON
 
 if __name__ == "__main__":
     EnsurePaths()
