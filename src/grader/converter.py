@@ -55,61 +55,16 @@ def _extract_images(
     return saved_paths
 
 
-def convert_friendly_to_llm(
+# TODO: implement (you can change `_iter_output_text` & `_extract_images`)
+def process_raw_ipynb(
     ipynb_file_path: str | Path, output_directory_path: str | Path
-) -> str:
-    """Return an LLM-friendly representation of a notebook.
-
-    The function reads the notebook without executing it, collects markdown, code,
-    and existing output, and writes any embedded images to the output directory.
+) -> None:
     """
-
-    notebook_path = Path(ipynb_file_path)
-    output_directory = Path(output_directory_path)
-    output_directory.mkdir(parents=True, exist_ok=True)
-
-    notebook = nbformat.read(notebook_path, as_version=4)
-    sections: list[str] = []
-
-    for cell_index, cell in enumerate(notebook.cells, start=1):
-        if cell.cell_type == "markdown":
-            sections.append(f"<--- Markdown #{cell_index} --->\n")
-            sections.append(str(cell.source).strip())
-            sections.append("\n")
-            continue
-
-        if cell.cell_type == "code":
-            sections.append(f"<--- Code #{cell_index} --->\n")
-            sections.append("```py")
-            sections.append(str(cell.source).rstrip())
-            sections.append("```\n")
-
-            outputs = cell.get("outputs", [])
-            if outputs:
-                sections.append(f"<--- Output #{cell_index} --->\n")
-
-            for output_index, output in enumerate(outputs, start=1):
-                image_paths = _extract_images(
-                    output,
-                    output_directory=output_directory,
-                    cell_index=cell_index,
-                    output_index=output_index,
-                )
-                for image_path in image_paths:
-                    sections.append(f"[Image saved: {image_path}]")
-
-                for text in _iter_output_text(output):
-                    sections.append(text.rstrip())
-
-            sections.append("")
-            continue
-
-        sections.append(f"<--- UNKNOWN type: {cell.cell_type.title()} #{cell_index} --->\n")
-        sections.append(str(cell.source).strip())
-        sections.append("\n")
-
-    return "\n".join(section for section in sections if section)
+    The function reads the notebook without executing it,
+    creates json consisting of cells' markdown, code, and existing output,
+    and writes any embedded images to the output directory.
+    """
+    ...
 
 if __name__ == "__main__":
-    text = convert_friendly_to_llm("notebooks/test.ipynb", "notebooks/output")
-    print(text)
+    process_raw_ipynb("notebooks/test.ipynb", "notebooks/output")
