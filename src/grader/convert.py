@@ -59,7 +59,7 @@ def _ExtractImages(
     return saved_paths
 
 
-def ProcessRawJupyter(
+def ProcessRawJupyterToJSON(
     ipynb_file_path: str | Path, output_directory_path: str | Path
 ) -> None:
     """
@@ -106,3 +106,6 @@ def ProcessRawJupyter(
 
     json_path = output_directory / f"{ipynb_path.stem}.json"
     json_path.write_text(json.dumps(json_payload, indent=2, sort_keys=True))
+
+
+def ProcessJSONToLLMFriendly(...): ...
