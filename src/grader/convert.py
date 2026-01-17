@@ -106,3 +106,85 @@ def ProcessRawJupyter(
 
     json_path = output_directory / f"{ipynb_path.stem}.json"
     json_path.write_text(json.dumps(json_payload, indent=2, sort_keys=True))
+
+
+def ProcessJSONToLLMFriendly(
+    json_file_path: str | Path,
+    output_file_path: str | Path | None = None,
+) -> str:
+    """
+    The function converts ProcessRawJupyter JSON into a text format that is easy for LLMs
+    to read and analyze. It returns the formatted text and optionally writes it to disk.
+    """
+    json_path = Path(json_file_path)
+    payload = json.loads(json_path.read_text())
+
+    source_file = payload.get("source_file", "unknown")
+    cells = payload.get("cells", [])
+
+    lines: list[str] = []
+    lines.append("Notebook summary for LLM")
+    lines.append(f"Source file: {source_file}")
+    lines.append(f"Total cells: {len(cells)}")
+
+    for cell in cells:
+        cell_index = cell.get("cell_index", "unknown")
+        cell_type = cell.get("cell_type", "unknown")
+        lines.append("")
+        lines.append(f"Cell {cell_index} ({cell_type})")
+
+        if cell_type == "markdown":
+            source = cell.get("source", "")
+            if source:
+                lines.append("Markdown:")
+                lines.append("```markdown")
+                lines.append(str(source).rstrip())
+                lines.append("```")
+            else:
+                lines.append("Markdown: <empty>")
+            continue
+
+        if cell_type == "code":
+            source_code = cell.get("source_code", "")
+            lines.append("Code:")
+            lines.append("```python")
+            lines.append(str(source_code).rstrip())
+            lines.append("```")
+
+            output_texts = cell.get("output_texts", [])
+            if output_texts:
+                lines.append("Outputs:")
+                for output_index, output_text in enumerate(output_texts, start=1):
+                    lines.append(f"- Output {output_index}:")
+                    lines.append("```text")
+                    lines.append(str(output_text).rstrip())
+                    lines.append("```")
+            else:
+                lines.append("Outputs: <none>")
+
+            output_images = cell.get("output_images", [])
+            if output_images:
+                lines.append("Output images:")
+                for image_path in output_images:
+                    lines.append(f"- {image_path}")
+            else:
+                lines.append("Output images: <none>")
+            continue
+
+        source = cell.get("source", "")
+        if source:
+            lines.append("Content:")
+            lines.append("```text")
+            lines.append(str(source).rstrip())
+            lines.append("```")
+        else:
+            lines.append("Content: <empty>")
+
+    rendered_text = "\n".join(lines).rstrip() + "\n"
+
+    if output_file_path is None:
+        output_file_path = json_path.with_suffix(".llm.txt")
+    output_path = Path(output_file_path)
+    output_path.write_text(rendered_text)
+
+    return rendered_text
