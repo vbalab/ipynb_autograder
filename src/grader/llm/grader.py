@@ -22,28 +22,40 @@ class Grader:
 
         self._system_prompt = Template(PATH_GRADER_PROMPT.read_text())
 
-        self._output_schema = {
+        self._result_schema = {
+            "type": "object",
+            "description": "Evaluation result for a single task.",
+            "properties": {
+                "score": {
+                    "type": "number",
+                    "minimum": 0,
+                    "description": "Potential score awarded for this task.",
+                },
+                "comment": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Explanation of places which requre doublechecking.",
+                },
+            },
+            "required": ["score", "comment"],
+            "additionalProperties": False,
+        }
+
+    def _build_output_schema(self, task_list_path: Path) -> dict[str, Any]:
+        task_payload = json.loads(task_list_path.read_text(encoding="utf-8"))
+        tasks = task_payload.get("tasks", [])
+
+        properties = {
+            task["title"]: self._result_schema for task in tasks if "title" in task
+        }
+        required = list(properties.keys())
+
+        return {
             "type": "object",
             "description": "Top-level object keyed by task titles.",
-            "properties": {},  # REQUIRED by OpenAI
-            "additionalProperties": {
-                "type": "object",
-                "description": "Evaluation result for a single task.",
-                "properties": {
-                    "score": {
-                        "type": "number",
-                        "minimum": 0,
-                        "description": "Potential score awarded for this task.",
-                    },
-                    "comment": {
-                        "type": "string",
-                        "minLength": 1,
-                        "description": "Explanation of places which requre doublechecking.",
-                    },
-                },
-                "required": ["score", "comment"],
-                "additionalProperties": False,
-            },
+            "properties": properties,
+            "required": required,
+            "additionalProperties": False,
         }
 
     def grade(
@@ -71,7 +83,7 @@ class Grader:
                     "type": "json_schema",
                     "name": "task_structure",
                     "strict": True,
-                    "schema": self._output_schema,
+                    "schema": self._build_output_schema(task_list_path),
                 }
             },
         )
