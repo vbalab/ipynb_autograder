@@ -245,7 +245,7 @@ async def CommandUploadStudentNotebook(
 
     a = DIR_NOTEBOOKS / f"notebook_{message.chat.id}"
 
-    # TODO: check if grading is alright, because it graded work to 0 points
+    # TODO: check if grading process in llm scripts is alright, because it graded work to 0 points
     GradeInputNotebook(a)
     # TODO: SEND pdf by path `a / "student" / "result.pdf"` to the user
     await state.clear()
