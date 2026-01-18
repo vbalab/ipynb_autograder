@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from aiogram import F, Router, types
 from aiogram.filters.command import Command
 from aiogram.filters.state import StateFilter
@@ -8,6 +10,8 @@ from aiogram.types import KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemo
 from grader.bot.lib.message.io import ContextIO, SendMessage
 from grader.bot.lib.message.filter import HasReferenceFilter, VerifiedFilter
 from grader.db.models.user import User
+from grader.bot.lifecycle.creator import bot
+from grader.core.configs.paths import DIR_NOTEBOOKS
 from grader.services.user import UserService
 
 router = Router()
@@ -16,6 +20,8 @@ router = Router()
 class StartStates(StatesGroup):
     GetPhoneNumber = State()
     Terms = State()
+    GetReferenceNotebook = State()
+    GetStudentNotebook = State()
 
 
 ipynb_keyboard = ReplyKeyboardMarkup(
@@ -89,8 +95,8 @@ async def CommandStartGetPhoneNumber(message: types.Message, state: FSMContext) 
         column=User.verified,
         value=True,
     )
-    
-    # TODO: CREATE notebooks/notebook_{chat_id} using DIR_NOTEBOOKS
+
+    _EnsureNotebookDirectories(message.chat.id)
 
     await SendMessage(
         chat_id=message.chat.id,
@@ -105,4 +111,97 @@ async def CommandStartGetPhoneNumber(message: types.Message, state: FSMContext) 
     )
 
 
-# TODO: implement functions that accepting message of the user by downloading ipynb of reference solution in notebooks/notebook_{chat_id}/reference/hw.ipynb (so it changes filename to hw.ipynb) and of student's solution in notebooks/notebook_{chat_id}/student/hw.ipynb; the functions should have filter in the body checking that file is ipynb format and if not sending message try again or smth like this (it should talk in russian)
+def _EnsureNotebookDirectories(chat_id: int) -> None:
+    base_dir = DIR_NOTEBOOKS / f"notebook_{chat_id}"
+    (base_dir / "reference").mkdir(parents=True, exist_ok=True)
+    (base_dir / "student").mkdir(parents=True, exist_ok=True)
+
+
+def _GetNotebookPath(chat_id: int, folder: str) -> Path:
+    return DIR_NOTEBOOKS / f"notebook_{chat_id}" / folder / "hw.ipynb"
+
+
+async def _SaveNotebook(
+    document: types.Document,
+    destination: Path,
+) -> None:
+    file = await bot.get_file(document.file_id)
+    await bot.download_file(file.file_path, destination=destination)
+
+
+def _IsNotebook(document: types.Document | None) -> bool:
+    if document is None or document.file_name is None:
+        return False
+    return document.file_name.lower().endswith(".ipynb")
+
+
+@router.message(StateFilter(None), F.text == "📥 Эталон", VerifiedFilter())
+async def CommandReferenceNotebook(message: types.Message, state: FSMContext) -> None:
+    await SendMessage(
+        chat_id=message.chat.id,
+        text="Пожалуйста, отправьте эталонное решение в формате .ipynb.",
+    )
+    await state.set_state(StartStates.GetReferenceNotebook)
+
+
+@router.message(StateFilter(None), F.text == "🔍 Студент", VerifiedFilter())
+async def CommandStudentNotebook(message: types.Message, state: FSMContext) -> None:
+    await SendMessage(
+        chat_id=message.chat.id,
+        text="Пожалуйста, отправьте решение студента в формате .ipynb.",
+    )
+    await state.set_state(StartStates.GetStudentNotebook)
+
+
+@router.message(StateFilter(StartStates.GetReferenceNotebook))
+async def CommandUploadReferenceNotebook(
+    message: types.Message,
+    state: FSMContext,
+) -> None:
+    if not _IsNotebook(message.document):
+        await SendMessage(
+            chat_id=message.chat.id,
+            text="❌ Нужен файл в формате .ipynb. Пожалуйста, попробуйте еще раз.",
+            context=ContextIO.UserFailed,
+        )
+        return
+
+    _EnsureNotebookDirectories(message.chat.id)
+    await _SaveNotebook(
+        document=message.document,
+        destination=_GetNotebookPath(message.chat.id, "reference"),
+    )
+
+    await SendMessage(
+        chat_id=message.chat.id,
+        text="✅ Эталонное решение загружено.",
+        reply_markup=ipynb_keyboard,
+    )
+    await state.clear()
+
+
+@router.message(StateFilter(StartStates.GetStudentNotebook))
+async def CommandUploadStudentNotebook(
+    message: types.Message,
+    state: FSMContext,
+) -> None:
+    if not _IsNotebook(message.document):
+        await SendMessage(
+            chat_id=message.chat.id,
+            text="❌ Нужен файл в формате .ipynb. Пожалуйста, попробуйте еще раз.",
+            context=ContextIO.UserFailed,
+        )
+        return
+
+    _EnsureNotebookDirectories(message.chat.id)
+    await _SaveNotebook(
+        document=message.document,
+        destination=_GetNotebookPath(message.chat.id, "student"),
+    )
+
+    await SendMessage(
+        chat_id=message.chat.id,
+        text="✅ Решение студента загружено.",
+        reply_markup=ipynb_keyboard,
+    )
+    await state.clear()
