@@ -42,22 +42,6 @@ _schema = {
 }
 
 
-# class Grader:
-#     def __init__(
-#         self,
-#         api_key: Path,
-#         structure_system_prompt_path: Path,
-#         model: str = "deepseek/deepseek-r1-0528:free",
-#         base_url: str | None = None,  # "https://openrouter.ai/api/v1"
-#     ):
-#         self.client = OpenAI(api_key=api_key, base_url=base_url)
-#         # #settings.OPENAI_API_KEY.get_secret_value()
-#         self.model = model
-
-#         # grade_prompt = Path(grade_system_prompt_path).read_text()
-#         # self.grade_prompt = Template(grade_prompt)  # TODO: break into system/user
-
-
 _structure_system_prompt = PATH_STRUCTURE_PROMPT.read_text()
 
 
@@ -96,7 +80,11 @@ def ProcessReference(
 ) -> None:
     ProcessRawJupyterToJSON(directory_path)
     ProcessJSONToLLMFriendlyText(directory_path)
-    
-    client = OpenAI(api_key=settings.OPENAI_API_KEY.get_secret_value())
-    model = "gpt-5-nano"
+
+    client = OpenAI(
+        base_url="https://openrouter.ai/api/v1",
+        api_key=settings.OPENROUTER_API_KEY.get_secret_value(),
+    )
+    # model = "gpt-5-nano"
+    model = "deepseek/deepseek-v3.2"
     DefineReferenceTaskStructure(client, model, directory_path)

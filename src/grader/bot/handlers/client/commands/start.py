@@ -7,13 +7,13 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove
 
-from grader.bot.lib.message.io import ContextIO, SendMessage
 from grader.bot.lib.message.filter import VerifiedFilter
-from grader.db.models.user import User
+from grader.bot.lib.message.io import ContextIO, SendMessage
 from grader.bot.lifecycle.creator import bot
 from grader.core.configs.paths import DIR_NOTEBOOKS
-from grader.services.user import UserService
+from grader.db.models.user import User
 from grader.llm.reference import ProcessReference
+from grader.services.user import UserService
 
 router = Router()
 
@@ -178,7 +178,7 @@ async def CommandUploadReferenceNotebook(
     )
     a = DIR_NOTEBOOKS / f"notebook_{message.chat.id}" / "reference"
     ProcessReference(a)
-    
+
     await SendMessage(
         chat_id=message.chat.id,
         text="✅ Эталонное решение загружено и обработано",
