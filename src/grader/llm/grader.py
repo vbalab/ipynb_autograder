@@ -1,15 +1,15 @@
 import json
 from pathlib import Path
-
-from openai import OpenAI
-from jinja2 import Template
-from grader.core.configs.settings import settings
 from typing import Any
 
 import markdown
+from jinja2 import Template
+from openai import OpenAI
 from weasyprint import HTML
+
 from grader.core.configs.paths import PATH_GRADER_PROMPT
-from grader.llm.convert import ProcessRawJupyterToJSON, ProcessJSONToLLMFriendlyText
+from grader.core.configs.settings import settings
+from grader.llm.convert import ProcessJSONToLLMFriendlyText, ProcessRawJupyterToJSON
 from grader.llm.filenames import Filenames
 
 class Grader:
@@ -48,9 +48,9 @@ class Grader:
 
     def grade(
         self,
-        task_list_path: list[str],
-        reference_notebook_path: str,
-        input_notebook_path: str,
+        task_list_path: Path,
+        reference_notebook_path: Path,
+        input_notebook_path: Path,
     ) -> None:
         resp = self._client.responses.create(
             model=self._model,
@@ -85,7 +85,7 @@ class Grader:
         self,
         tasks_path: Path,
         results_path: Path,
-        pdf_path: str,
+        pdf_path: Path,
     ) -> None:
         """
         Algorithmically generate markdown report and score table
@@ -136,15 +136,30 @@ class Grader:
         )
 
         # Генерируем PDF
-        HTML(string=html_text).write_pdf(pdf_path)
+        HTML(string=html_text).write_pdf(str(pdf_path))
 
-def GradeInputNotebook(directory_path):
+
+def GradeInputNotebook(directory_path: Path) -> None:
     reference_path = directory_path / "reference"
     student_path = directory_path / "student"
 
     ProcessRawJupyterToJSON(student_path)
     ProcessJSONToLLMFriendlyText(student_path)
 
+    reference_tasks_path = reference_path / Filenames.task_structure.value
+    reference_llm_path = reference_path / Filenames.llm_friendly.value
+    student_llm_path = student_path / Filenames.llm_friendly.value
+    result_path = student_path / "result.txt"
+    pdf_path = student_path / "result.pdf"
+
     grader = Grader()
-    grader.grade(task_list_path=reference_path / Filenames.task_structure.value, reference_notebook_path=reference_path / Filenames.llm_friendly.value, input_notebook_path= student_path / Filenames.llm_friendly.value,)
-    grader.generate_md_report(tasks_path=reference_path / Filenames.task_structure.value, results_path=student_path / "result.txt", pdf_path=student_path / "result.pdf")
+    grader.grade(
+        task_list_path=reference_tasks_path,
+        reference_notebook_path=reference_llm_path,
+        input_notebook_path=student_llm_path,
+    )
+    grader.generate_md_report(
+        tasks_path=reference_tasks_path,
+        results_path=result_path,
+        pdf_path=pdf_path,
+    )
