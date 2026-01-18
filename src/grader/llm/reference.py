@@ -1,8 +1,11 @@
-import json
+from pathlib import Path
 
 from openai import OpenAI
 
+from grader.configs.constants import Filenames
 from grader.configs.env import settings
+from grader.configs.paths import PATH_STRUCTURE_PROMPT
+from grader.convert import ProcessJSONToLLMFriendlyText, ProcessRawJupyterToJSON
 
 client = OpenAI(api_key=settings.OPENAI_API_KEY.get_secret_value())
 
@@ -41,32 +44,40 @@ _schema = {
 }
 
 
-_system_prompt = """You are given the contents of a ground-truth Jupyter notebook solution. Your job is to derive an assessment rubric (task breakdown) based ONLY on what appears in that ground-truth solution.
+# class Grader:
+#     def __init__(
+#         self,
+#         api_key: Path,
+#         structure_system_prompt_path: Path,
+#         model: str = "deepseek/deepseek-r1-0528:free",
+#         base_url: str | None = None,  # "https://openrouter.ai/api/v1"
+#     ):
+#         self.client = OpenAI(api_key=api_key, base_url=base_url)
+#         # #settings.OPENAI_API_KEY.get_secret_value()
+#         self.model = model
 
-Output MUST be valid JSON that matches this structure:
-{
-  "tasks": [
-    { "title": string, "description": string, "maximumScore": number }
-  ]
-}
-
-Rules:
-- Create tasks that correspond to distinct parts of the ground-truth notebook task structure.
-- If the notebook already defines a grading/points breakdown, mirror it exactly in maximumScore and task boundaries.
-- If no grading is provided, assign reasonable maximumScore values and keep them consistent across tasks.
-- Do not invent requirements that are not evidenced in the ground-truth notebook.
-- Do not include any extra keys besides: title, description, maximumScore.
-- Use concise titles and specific, checkable descriptions.
-"""
+#         # grade_prompt = Path(grade_system_prompt_path).read_text()
+#         # self.grade_prompt = Template(grade_prompt)  # TODO: break into system/user
 
 
-def DefineTaskStructure(ground_truth_notebook_text: str):
+_structure_system_prompt = PATH_STRUCTURE_PROMPT.read_text()
+
+
+def DefineReferenceTaskStructure(
+    client: OpenAI,
+    model: str,
+    directory_path: Path,
+) -> None:
+    llm_friendly_ipynb_path = directory_path / Filenames.llm_friendly.value
+    llm_friendly_ipynb = llm_friendly_ipynb_path.read_text()
+
     resp = client.responses.create(
         # model="gpt-5",
-        model="gpt-5-nano",
+        # model="gpt-5-nano",
+        model=model,
         input=[
-            {"role": "system", "content": _system_prompt},
-            {"role": "user", "content": ground_truth_notebook_text},
+            {"role": "system", "content": _structure_system_prompt},
+            {"role": "user", "content": llm_friendly_ipynb},
         ],
         text={
             "format": {
@@ -78,6 +89,15 @@ def DefineTaskStructure(ground_truth_notebook_text: str):
         },
     )
 
-    task_structure = json.loads(resp.output_text)
+    task_structure_path = directory_path / Filenames.task_structure.value
+    task_structure_path.write_text(resp.output_text)
 
-    return task_structure
+
+def ProcessReference(
+    client: OpenAI,
+    model: str,
+    directory_path: Path,
+) -> None:
+    ProcessRawJupyterToJSON(directory_path)
+    ProcessJSONToLLMFriendlyText(directory_path)
+    DefineReferenceTaskStructure(client, model, directory_path)

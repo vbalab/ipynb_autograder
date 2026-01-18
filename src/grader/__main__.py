@@ -1,27 +1,59 @@
-import json
+import asyncio
 
-from grader.configs.paths import DIR_NOTEBOOK, DIR_PROMPTS, EnsurePaths
-from grader.convert import ProcessJSONToLLMFriendlyText, ProcessRawJupyterToJSON
-from grader.structure import DefineTaskStructure
+from grader.bot.handlers.admin.register import RegisterAdminHandlers
+from grader.bot.handlers.client.register import RegisterClientHandlers
+from grader.bot.handlers.forall.register import (
+    RegisterHandlerCancel,
+    RegisterHandlerZeroMessage,
+)
+from grader.bot.handlers.middleware import SetBotMiddleware
+from grader.bot.lib.notification import admin
+from grader.bot.lib.notification.erroring import SetExceptionHandlers
+from grader.bot.lib.notification.pending import ProcessPendingUpdates
+from grader.bot.lifecycle.creator import bot, dp
+from grader.bot.lifecycle.menu import SetMenu
+from grader.core.configs.paths import EnsurePaths
+from grader.core.logs import flow as logs
+from grader.core.logs.bot import LoggerSetup
+from grader.db.session import EnsureDB
 
-if __name__ == "__main__":
+
+async def EnsureDependencies() -> None:
+    await EnsureDB()
+
+
+async def OnStartup() -> None:
+    await SetMenu()
+    RegisterHandlerCancel(dp)
+    RegisterAdminHandlers(dp)
+    RegisterClientHandlers(dp)
+    RegisterHandlerZeroMessage(dp)
+    SetBotMiddleware(dp)
+
+    await admin.NotifyOnStartup()
+    await ProcessPendingUpdates()
+
+
+async def OnShutdown() -> None:
+    await admin.NotifyOnShutdown()
+
+    await logs.LoggerShutdown()
+
+
+async def main() -> None:
     EnsurePaths()
+    await logs.LoggerStart(LoggerSetup)
 
-    ProcessRawJupyterToJSON(DIR_NOTEBOOK / "reference.ipynb", DIR_NOTEBOOK)
-    ProcessJSONToLLMFriendlyText(DIR_NOTEBOOK / "reference.json", DIR_NOTEBOOK)
-    
-    ProcessRawJupyterToJSON(DIR_NOTEBOOK / "student.ipynb", DIR_NOTEBOOK)
-    ProcessJSONToLLMFriendlyText(DIR_NOTEBOOK / "student.json", DIR_NOTEBOOK)
-    
-    p = DIR_NOTEBOOK / "reference.txt"
-    save = DIR_NOTEBOOK / "structure.txt"
-    
-    s: str = p.read_text(encoding="utf-8")
-    task_structure = DefineTaskStructure(s)
-    save.write_text(json.dumps(task_structure, indent=2, sort_keys=True))
+    await EnsureDependencies()
 
-    grader = Grader(os.getenv('OPENAI_API_KEY'), DIR_PROMPTS / 'grader.md')
-    grading_json = grade.grade(DIR_NOTEBOOK / "structure.txt", DIR_NOTEBOOK / "reference.txt", DIR_NOTEBOOK / "student.txt")
-    
-    save = DIR_NOTEBOOK / "result.txt"
-    save.write_text(json.dumps(task_structure, indent=2, sort_keys=True))
+    dp.startup.register(OnStartup)
+    dp.shutdown.register(OnShutdown)
+
+    SetExceptionHandlers()
+
+    await dp.start_polling(bot, drop_pending_updates=True)
+
+
+# $ python -m grader
+if __name__ == "__main__":
+    asyncio.run(main())

@@ -3,3 +3,17 @@ nbconvert
 pydantic
 pydantic-settings
 openai
+aiogram==3.20.0
+aiolimiter==1.2.1
+sqlalchemy[asyncio]==2.0.40
+psycopg2-binary==2.9.10
+aiosmtplib==4.0.1
+asyncpg==0.30.0
+alembic==1.15.2
+pydantic==2.11.3
+pydantic-settings==2.9.1
+cachetools==6.0.0
+types-cachetools==6.0.0.20250525
+python-dotenv==1.1.0
+colorlog==6.9.0
+python-json-logger==3.3.0

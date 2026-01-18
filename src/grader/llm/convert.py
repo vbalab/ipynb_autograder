@@ -5,6 +5,11 @@ from pathlib import Path
 
 import nbformat
 
+from grader.configs.constants import Filenames
+
+# TODO: pip install
+# TODO: limit output
+
 
 def _IterOutputText(output: nbformat.NotebookNode) -> Iterable[str]:
     output_type = output.get("output_type")
@@ -59,16 +64,13 @@ def _ExtractImages(
     return saved_paths
 
 
-def ProcessRawJupyterToJSON(
-    ipynb_file_path: Path,
-    output_directory_path: Path,
-) -> None:
+def ProcessRawJupyterToJSON(directory_path: Path) -> None:
     """
     The function reads the notebook without executing it,
     creates json consisting of cells' markdown, code, and existing output,
     and writes any embedded images to the output directory.
     """
-    output_directory_path.mkdir(parents=True, exist_ok=True)
+    ipynb_file_path = directory_path / Filenames.ipynb.value
 
     notebook = nbformat.read(ipynb_file_path, as_version=4)
     cells_payload: list[dict[str, object]] = []
@@ -91,9 +93,7 @@ def ProcessRawJupyterToJSON(
             for output_index, output in enumerate(outputs):
                 output_texts.extend(_IterOutputText(output))
                 output_images.extend(
-                    _ExtractImages(
-                        output, output_directory_path, cell_index, output_index
-                    )
+                    _ExtractImages(output, directory_path, cell_index, output_index)
                 )
             cell_payload["output_texts"] = output_texts
             cell_payload["output_images"] = output_images
@@ -105,18 +105,16 @@ def ProcessRawJupyterToJSON(
         "cells": cells_payload,
     }
 
-    json_path = output_directory_path / f"{ipynb_file_path.stem}.json"
-    json_path.write_text(json.dumps(json_payload, indent=2, sort_keys=True))
+    parsed_path = directory_path / Filenames.parsed_json.value
+    parsed_path.write_text(json.dumps(json_payload, indent=2, sort_keys=True))
 
 
-def ProcessJSONToLLMFriendlyText(  # noqa: PLR0912, PLR0915
-    json_file_path: Path,
-    output_directory_path: Path,
-) -> None:
+def ProcessJSONToLLMFriendlyText(directory_path: Path) -> None:
     """
     The function converts ProcessRawJupyter JSON into a text format that is easy for LLMs
     to read and analyze. It returns the formatted text and optionally writes it to disk.
     """
+    json_file_path = directory_path / Filenames.parsed_json.value
     payload = json.loads(json_file_path.read_text())
 
     cells = payload.get("cells", [])
@@ -179,5 +177,5 @@ def ProcessJSONToLLMFriendlyText(  # noqa: PLR0912, PLR0915
 
     rendered_text = "\n".join(lines).rstrip() + "\n"
 
-    output_path = Path(output_directory_path / f"{json_file_path.stem}.txt")
+    output_path = Path(directory_path / Filenames.llm_friendly.value)
     output_path.write_text(rendered_text)

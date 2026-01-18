@@ -1,3 +1,4 @@
 matplotlib
 black
 mypy
+ruff

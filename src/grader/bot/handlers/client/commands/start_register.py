@@ -1,0 +1,108 @@
+from aiogram import F, Router, types
+from aiogram.filters.command import Command
+from aiogram.filters.state import StateFilter
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.types import KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove
+
+from grader.bot.lib.message.io import ContextIO, SendMessage
+from grader.bot.lib.message.filter import HasReferenceFilter, VerifiedFilter
+from grader.db.models.user import User
+from grader.services.user import UserService
+
+router = Router()
+
+
+class StartStates(StatesGroup):
+    GetPhoneNumber = State()
+    Terms = State()
+
+
+ipynb_keyboard = ReplyKeyboardMarkup(
+    keyboard=[
+        [
+            KeyboardButton(text="📥 Эталон"),
+            KeyboardButton(text="🔍 Студент"),
+        ]
+    ],
+    resize_keyboard=True,
+)
+
+
+@router.message(StateFilter(None), Command("start"), VerifiedFilter())
+async def CommandStartNew(message: types.Message) -> None:
+    await SendMessage(
+        chat_id=message.chat.id,
+        text="Выберете, чье решение в формате .ipynb вы бы хотели загрузить - эталонное или решение студента",
+        reply_markup=ipynb_keyboard,
+    )
+
+
+@router.message(StateFilter(None), Command("start"))
+async def CommandStart(message: types.Message, state: FSMContext) -> None:
+    button = KeyboardButton(text="📱 Поделиться контактом", request_contact=True)
+    keyboard = ReplyKeyboardMarkup(keyboard=[[button]], resize_keyboard=True)
+
+    await SendMessage(
+        chat_id=message.chat.id,
+        text="Пожалуйста, поделитесь с нами своим контактом\n\nЕсли меню с кнопками скрыто, нажмите на значок 🎛 в правом нижнем углу",
+        reply_markup=keyboard,
+    )
+
+    await state.set_state(StartStates.GetPhoneNumber)
+
+
+@router.message(StateFilter(StartStates.GetPhoneNumber))
+async def CommandStartGetPhoneNumber(message: types.Message, state: FSMContext) -> None:
+    if message.contact is None:
+        await SendMessage(
+            chat_id=message.chat.id,
+            text="❌ Пожалуйста, отправьте свой номер телефона, используя кнопку ниже.\n\nЕсли меню с кнопками скрыто, нажмите на значок 🎛 в правом нижнем углу",
+            context=ContextIO.UserFailed,
+        )
+        return
+
+    if message.contact.user_id is None:
+        await SendMessage(
+            chat_id=message.chat.id,
+            text="❌ Не удалось получить ваш номер телефона, так как вы не являетесь пользователем Telegram.\nПожалуйста, попробуйте снова из своего пользовательского профиля",
+            context=ContextIO.UserFailed,
+        )
+        return
+
+    if message.contact.user_id != message.chat.id:
+        await SendMessage(
+            chat_id=message.chat.id,
+            text="❌ Вы отправили чужой номер телефона.\nПожалуйста, отправьте свой собственный номер.\n\nЕсли меню с кнопками скрыто, нажмите на значок 🎛 в правом нижнем углу",
+            context=ContextIO.UserFailed,
+        )
+        return
+
+    srv = UserService.Create()
+    await srv.UpdateUser(
+        chat_id=message.chat.id,
+        column=User.phone_number,
+        value=message.contact.phone_number,
+    )
+    await srv.UpdateUser(
+        chat_id=message.chat.id,
+        column=User.verified,
+        value=True,
+    )
+    
+    # TODO: CREATE notebooks/notebook_{chat_id} using DIR_NOTEBOOKS
+
+    await SendMessage(
+        chat_id=message.chat.id,
+        text="✅ Спасибо!",
+        reply_markup=ReplyKeyboardRemove(),
+    )
+
+    await SendMessage(
+        chat_id=message.chat.id,
+        text="Выберете, чье решение в формате .ipynb вы бы хотели загрузить - эталонное решение для контекста или решение студента для проверки.",
+        reply_markup=ipynb_keyboard,
+    )
+
+
+# TODO: implement functions that accepting message of the user by downloading ipynb of reference solution in notebooks/notebook_{chat_id}/reference/hw.ipynb (so it changes filename to hw.ipynb) and of student's solution in notebooks/notebook_{chat_id}/student/hw.ipynb; the functions should have filter in the body checking that file is ipynb format and if not sending message try again or smth like this (it should talk in russian)
