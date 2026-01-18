@@ -8,7 +8,7 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove
 
 from grader.bot.lib.message.filter import VerifiedFilter
-from grader.bot.lib.message.io import ContextIO, SendMessage
+from grader.bot.lib.message.io import ContextIO, SendDocument, SendMessage
 from grader.bot.lifecycle.creator import bot
 from grader.core.configs.paths import DIR_NOTEBOOKS
 from grader.db.models.user import User
@@ -245,7 +245,22 @@ async def CommandUploadStudentNotebook(
 
     a = DIR_NOTEBOOKS / f"notebook_{message.chat.id}"
 
-    # TODO: check if grading process in llm scripts is alright and fix errors in grading process, because it graded work to 0 points
     GradeInputNotebook(a)
-    # TODO: SEND pdf by path `a / "student" / "result.pdf"` to the user
+
+    result_path = a / "student" / "result.pdf"
+    if not result_path.exists():
+        await SendMessage(
+            chat_id=message.chat.id,
+            text="❌ Не удалось найти отчет по проверке. Попробуйте загрузить решение еще раз.",
+            context=ContextIO.Error,
+        )
+        await state.clear()
+        return
+
+    await SendDocument(
+        chat_id=message.chat.id,
+        document=types.FSInputFile(result_path),
+        caption="📄 Отчет по проверке",
+        reply_markup=ipynb_keyboard,
+    )
     await state.clear()
