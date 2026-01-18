@@ -18,6 +18,7 @@ _dirs = [
 PATH_ENV = _DIR_ROOT / ".env"
 PATH_BOT_LOGS = _DIR_LOGS / "bot" / "bot.log"
 PATH_STRUCTURE_PROMPT = _DIR_PROMPTS / "structure.md"
+PATH_GRADER_PROMPT = _DIR_PROMPTS / "grader.md"
 
 
 def EnsurePaths() -> None:

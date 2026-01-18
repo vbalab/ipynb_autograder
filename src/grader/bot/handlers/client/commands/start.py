@@ -13,6 +13,7 @@ from grader.bot.lifecycle.creator import bot
 from grader.core.configs.paths import DIR_NOTEBOOKS
 from grader.db.models.user import User
 from grader.llm.reference import ProcessReference
+from grader.llm.grader import GradeInputNotebook
 from grader.services.user import UserService
 
 router = Router()
@@ -177,12 +178,26 @@ async def CommandUploadReferenceNotebook(
         destination=_GetNotebookPath(message.chat.id, "reference"),
     )
     a = DIR_NOTEBOOKS / f"notebook_{message.chat.id}" / "reference"
+
+    await SendMessage(
+        chat_id=message.chat.id,
+        text="✅ Эталонное решение загружено, приступает к обработке",
+        reply_markup=ipynb_keyboard,
+    )
+
     ProcessReference(a)
 
     await SendMessage(
         chat_id=message.chat.id,
         text="✅ Эталонное решение загружено и обработано",
         reply_markup=ipynb_keyboard,
+    )
+
+    srv = UserService.Create()
+    await srv.UpdateUser(
+        chat_id=message.chat.id,
+        column=User.has_reference,
+        value=True,
     )
     await state.clear()
 
@@ -224,7 +239,13 @@ async def CommandUploadStudentNotebook(
 
     await SendMessage(
         chat_id=message.chat.id,
-        text="✅ Решение студента загружено.",
+        text="✅ Решение студента загружено, приступаем к оценке",
         reply_markup=ipynb_keyboard,
     )
+
+    a = DIR_NOTEBOOKS / f"notebook_{message.chat.id}"
+
+    # TODO: check if grading is alright, because it graded work to 0 points
+    GradeInputNotebook(a)
+    # TODO: SEND pdf by path `a / "student" / "result.pdf"` to the user
     await state.clear()

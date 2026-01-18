@@ -3,6 +3,8 @@ nbconvert
 pydantic
 pydantic-settings
 openai
+markdown
+weasyprint
 aiogram==3.20.0
 aiolimiter==1.2.1
 sqlalchemy[asyncio]==2.0.40
