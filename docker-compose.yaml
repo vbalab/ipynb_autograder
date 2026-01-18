@@ -1,0 +1,47 @@
+name: grader
+
+services:
+  db:
+    image: postgres:15
+    container_name: grader_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    networks:
+      - grader_network
+    ports:
+      - ${POSTGRES_PORT}:${POSTGRES_PORT}
+    volumes:
+      - ./data/postgresql/data:/var/lib/postgresql/data
+
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: grader_bot
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./data/logs/bot:/usr/src/app/data/logs/bot
+      - ./data/notebooks:/usr/src/app/data/notebooks
+    networks:
+      - grader_network
+    stdin_open: true              # Keeps STDIN open
+    tty: true                     # Allocates a pseudo-TTY
+    command: python -m grader
+
+networks:
+  grader_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local

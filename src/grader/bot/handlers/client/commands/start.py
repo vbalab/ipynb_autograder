@@ -8,11 +8,12 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove
 
 from grader.bot.lib.message.io import ContextIO, SendMessage
-from grader.bot.lib.message.filter import HasReferenceFilter, VerifiedFilter
+from grader.bot.lib.message.filter import VerifiedFilter
 from grader.db.models.user import User
 from grader.bot.lifecycle.creator import bot
 from grader.core.configs.paths import DIR_NOTEBOOKS
 from grader.services.user import UserService
+from grader.llm.reference import ProcessReference
 
 router = Router()
 
@@ -39,7 +40,7 @@ ipynb_keyboard = ReplyKeyboardMarkup(
 async def CommandStartNew(message: types.Message) -> None:
     await SendMessage(
         chat_id=message.chat.id,
-        text="Выберете, чье решение в формате .ipynb вы бы хотели загрузить - эталонное или решение студента",
+        text="Выберете, чье решение в формате .ipynb вы бы хотели загрузить - эталонное решение для контекста или решение студента для проверки",
         reply_markup=ipynb_keyboard,
     )
 
@@ -98,6 +99,8 @@ async def CommandStartGetPhoneNumber(message: types.Message, state: FSMContext) 
 
     _EnsureNotebookDirectories(message.chat.id)
 
+    await state.clear()
+
     await SendMessage(
         chat_id=message.chat.id,
         text="✅ Спасибо!",
@@ -106,7 +109,7 @@ async def CommandStartGetPhoneNumber(message: types.Message, state: FSMContext) 
 
     await SendMessage(
         chat_id=message.chat.id,
-        text="Выберете, чье решение в формате .ipynb вы бы хотели загрузить - эталонное решение для контекста или решение студента для проверки.",
+        text="Выберете, чье решение в формате .ipynb вы бы хотели загрузить - эталонное решение для контекста или решение студента для проверки",
         reply_markup=ipynb_keyboard,
     )
 
@@ -126,6 +129,7 @@ async def _SaveNotebook(
     destination: Path,
 ) -> None:
     file = await bot.get_file(document.file_id)
+    assert file.file_path is not None
     await bot.download_file(file.file_path, destination=destination)
 
 
@@ -139,7 +143,7 @@ def _IsNotebook(document: types.Document | None) -> bool:
 async def CommandReferenceNotebook(message: types.Message, state: FSMContext) -> None:
     await SendMessage(
         chat_id=message.chat.id,
-        text="Пожалуйста, отправьте эталонное решение в формате .ipynb.",
+        text="Пожалуйста, отправьте эталонное решение в формате .ipynb",
     )
     await state.set_state(StartStates.GetReferenceNotebook)
 
@@ -148,7 +152,7 @@ async def CommandReferenceNotebook(message: types.Message, state: FSMContext) ->
 async def CommandStudentNotebook(message: types.Message, state: FSMContext) -> None:
     await SendMessage(
         chat_id=message.chat.id,
-        text="Пожалуйста, отправьте решение студента в формате .ipynb.",
+        text="Пожалуйста, отправьте решение студента в формате .ipynb",
     )
     await state.set_state(StartStates.GetStudentNotebook)
 
@@ -161,20 +165,23 @@ async def CommandUploadReferenceNotebook(
     if not _IsNotebook(message.document):
         await SendMessage(
             chat_id=message.chat.id,
-            text="❌ Нужен файл в формате .ipynb. Пожалуйста, попробуйте еще раз.",
+            text="❌ Нужен файл в формате .ipynb. Пожалуйста, попробуйте еще раз",
             context=ContextIO.UserFailed,
         )
         return
+    assert message.document is not None
 
     _EnsureNotebookDirectories(message.chat.id)
     await _SaveNotebook(
         document=message.document,
         destination=_GetNotebookPath(message.chat.id, "reference"),
     )
-
+    a = DIR_NOTEBOOKS / f"notebook_{message.chat.id}" / "reference"
+    ProcessReference(a)
+    
     await SendMessage(
         chat_id=message.chat.id,
-        text="✅ Эталонное решение загружено.",
+        text="✅ Эталонное решение загружено и обработано",
         reply_markup=ipynb_keyboard,
     )
     await state.clear()
@@ -185,13 +192,29 @@ async def CommandUploadStudentNotebook(
     message: types.Message,
     state: FSMContext,
 ) -> None:
-    if not _IsNotebook(message.document):
+    srv = UserService.Create()
+
+    has_reference = await srv.GetUser(
+        chat_id=message.chat.id,
+        column=User.has_reference,
+    )
+
+    if not has_reference:
         await SendMessage(
             chat_id=message.chat.id,
-            text="❌ Нужен файл в формате .ipynb. Пожалуйста, попробуйте еще раз.",
+            text="Пожалуйста, сначала выберете загрузку эталонного решения",
             context=ContextIO.UserFailed,
         )
         return
+
+    if not _IsNotebook(message.document):
+        await SendMessage(
+            chat_id=message.chat.id,
+            text="❌ Нужен файл в формате .ipynb. Пожалуйста, попробуйте еще раз",
+            context=ContextIO.UserFailed,
+        )
+        return
+    assert message.document is not None
 
     _EnsureNotebookDirectories(message.chat.id)
     await _SaveNotebook(

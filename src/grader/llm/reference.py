@@ -2,12 +2,10 @@ from pathlib import Path
 
 from openai import OpenAI
 
-from grader.configs.constants import Filenames
-from grader.configs.env import settings
-from grader.configs.paths import PATH_STRUCTURE_PROMPT
-from grader.convert import ProcessJSONToLLMFriendlyText, ProcessRawJupyterToJSON
-
-client = OpenAI(api_key=settings.OPENAI_API_KEY.get_secret_value())
+from grader.core.configs.paths import PATH_STRUCTURE_PROMPT
+from grader.core.configs.settings import settings
+from grader.llm.convert import ProcessJSONToLLMFriendlyText, ProcessRawJupyterToJSON
+from grader.llm.filenames import Filenames
 
 _schema = {
     "type": "object",
@@ -94,10 +92,11 @@ def DefineReferenceTaskStructure(
 
 
 def ProcessReference(
-    client: OpenAI,
-    model: str,
     directory_path: Path,
 ) -> None:
     ProcessRawJupyterToJSON(directory_path)
     ProcessJSONToLLMFriendlyText(directory_path)
+    
+    client = OpenAI(api_key=settings.OPENAI_API_KEY.get_secret_value())
+    model = "gpt-5-nano"
     DefineReferenceTaskStructure(client, model, directory_path)

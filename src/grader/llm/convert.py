@@ -5,7 +5,7 @@ from pathlib import Path
 
 import nbformat
 
-from grader.configs.constants import Filenames
+from grader.llm.filenames import Filenames
 
 # TODO: pip install
 # TODO: limit output

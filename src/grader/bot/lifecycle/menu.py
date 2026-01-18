@@ -5,8 +5,8 @@ from grader.bot.lifecycle.creator import bot
 
 async def SetMenu() -> None:
     commands = [
-        BotCommand(command="/start", description="Заказать"),
-        BotCommand(command="/cancel", description="Отменить текущее действие"),
+        BotCommand(command="/start", description="Меню"),
+        BotCommand(command="/cancel", description="Отменить действие"),
     ]
 
     await bot.set_my_commands(commands)

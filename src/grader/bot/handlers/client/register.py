@@ -1,11 +1,10 @@
 from aiogram import Dispatcher
 
-from grader.bot.handlers.client.commands import start_order, start_register
+from grader.bot.handlers.client.commands import start
 
 
 def RegisterClientHandlers(dp: Dispatcher) -> None:
     dp.include_routers(
         # order matters
-        start_order.router,
-        start_register.router,
+        start.router,
     )

@@ -21,15 +21,3 @@ class VerifiedFilter(Filter):
         )
 
         return verified if verified else False
-
-
-class HasReferenceFilter(Filter):
-    async def __call__(self, message: types.Message) -> bool:
-        srv = UserService.Create()
-
-        has_reference = await srv.GetUser(
-            chat_id=message.chat.id,
-            column=User.has_reference,
-        )
-        assert has_reference is not None
-        return has_reference

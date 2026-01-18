@@ -1,6 +1,6 @@
 import asyncio
 
-from grader.bot.handlers.admin.register import RegisterAdminHandlers
+# from grader.bot.handlers.admin.register import RegisterAdminHandlers
 from grader.bot.handlers.client.register import RegisterClientHandlers
 from grader.bot.handlers.forall.register import (
     RegisterHandlerCancel,
@@ -25,7 +25,7 @@ async def EnsureDependencies() -> None:
 async def OnStartup() -> None:
     await SetMenu()
     RegisterHandlerCancel(dp)
-    RegisterAdminHandlers(dp)
+    # RegisterAdminHandlers(dp)
     RegisterClientHandlers(dp)
     RegisterHandlerZeroMessage(dp)
     SetBotMiddleware(dp)
